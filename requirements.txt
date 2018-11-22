@@ -1,2 +1,21 @@
+# Models
+django-model-utils
 
-# Additional requirements go here
+# Unicode slugification
+awesome-slugify
+
+# Images
+Pillow
+
+# imagekit for resized images, thumbnails..
+django-imagekit
+
+# docs
+Sphinx
+sphinx-rtd-theme
+
+# package upload
+twine
+
+# jwt authentication
+djangorestframework-jwt
