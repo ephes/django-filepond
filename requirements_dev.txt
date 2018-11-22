@@ -1,3 +1,10 @@
+-r requirements.txt
+
+# Documentation
+Sphinx
+sphinx-rtd-theme
+
+# Package building / upload
 bumpversion==0.5.3
 wheel==0.30.0
-
+twine

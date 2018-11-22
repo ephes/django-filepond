@@ -3,6 +3,10 @@ from __future__ import unicode_literals, absolute_import
 
 import django
 
+import environ
+
+ROOT_DIR = environ.Path(__file__) - 1
+
 DEBUG = True
 USE_TZ = True
 
@@ -27,7 +31,28 @@ INSTALLED_APPS = [
 
 SITE_ID = 1
 
-if django.VERSION >= (1, 10):
-    MIDDLEWARE = ()
-else:
-    MIDDLEWARE_CLASSES = ()
+MIDDLEWARE = [
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+]
+
+TEST_RUNNER = "filepond.runner.PytestTestRunner"
+
+# MEDIA CONFIGURATION
+# ------------------------------------------------------------------------------
+# See: https://docs.djangoproject.com/en/dev/ref/settings/#media-root
+MEDIA_ROOT = str(ROOT_DIR("media"))
+
+# See: https://docs.djangoproject.com/en/dev/ref/settings/#media-url
+MEDIA_URL = "/media/# MEDIA CONFIGURATION"
+# ------------------------------------------------------------------------------
+# See: https://docs.djangoproject.com/en/dev/ref/settings/#media-root
+MEDIA_ROOT = str(ROOT_DIR("media"))
+
+# See: https://docs.djangoproject.com/en/dev/ref/settings/#media-url
+MEDIA_URL = "/media/"
