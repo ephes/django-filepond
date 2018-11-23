@@ -11,6 +11,7 @@ class Upload(TimeStampedModel):
     """
     Hold uploaded files.
     """
+
     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
     original = models.FileField()
 
@@ -19,6 +20,4 @@ class Upload(TimeStampedModel):
         return reverse("filepond:get", kwargs={"pk": self.pk, "size": "original"})
 
     def __str__(self):
-        return (
-            f"{self.pk} {self.original.name}"
-        )
+        return f"{self.pk} {self.original.name}"

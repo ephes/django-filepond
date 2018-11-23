@@ -14,7 +14,6 @@ from filepond import models
 
 
 class TestFilepond(TestCase):
-
     def setUp(self):
         pass
 

@@ -6,6 +6,7 @@ from django.views.generic import CreateView, DeleteView, DetailView
 from .models import Upload
 from .forms import UploadForm
 
+
 class UploadCreateView(LoginRequiredMixin, CreateView):
     model = Upload
     form_class = UploadForm
