@@ -51,3 +51,6 @@ docs/_build
 
 # vim
 .*swp
+
+# test uploads
+tests/media
