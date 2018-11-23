@@ -20,7 +20,7 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
         try:
             super().form_valid(form)
             return HttpResponse(f"{model.pk}", status=201)
-        except IntegrityError as e:
+        except IntegrityError:
             return HttpResponse("This file was already uploaded!", status=409)
 
     def form_invalid(self, form):
@@ -39,7 +39,7 @@ class UploadRevertView(LoginRequiredMixin, DeleteView):
     def delete(self, request, *args, **kwargs):
         image = self.model.objects.get(pk=int(request.body))
         if self.request.user == image.user:
-            res = image.delete()
+            image.delete()
         return HttpResponse("", status=200)
 
 

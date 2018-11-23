@@ -17,13 +17,13 @@ class JWTMiddleware:
     def process_view(self, request, view_func, view_args, view_kwargs):
         # token should be either in http headers or cookie..
         token = request.META.get("HTTP_AUTHORIZATION", "")
-        if not token.startswith("JWT") and not JWT_COOKIE_NAME in request.COOKIES:
+        if not token.startswith("JWT") and JWT_COOKIE_NAME not in request.COOKIES:
             return
         jwt_auth = JSONWebTokenAuthentication()
         auth = None
         try:
             auth = jwt_auth.authenticate(request)
-        except Exception as e:
+        except Exception:
             return
         if auth is not None:
             request.user = auth[0]
