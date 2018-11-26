@@ -1,7 +1,29 @@
+import os
 import io
 import pytest
 
+from django.conf import settings
+from django.core.files.storage import default_storage
+
 from .factories import UserFactory
+from filepond.utils import storage_walk_paths
+
+
+@pytest.fixture(scope='session', autouse=True)
+def media_dir_cleanup():
+    # Will be executed before the first test
+    # and collects all paths in media root, that already
+    # existed before running the tests
+    print("media root: ", settings.MEDIA_ROOT)
+    existing_paths = set(storage_walk_paths(default_storage))
+    yield existing_paths
+    # Will be executed after the last test
+    # and finds all paths in media root which were added
+    # during the tests and remove them
+    for path in storage_walk_paths(default_storage):
+        if path not in existing_paths:
+            abs_path = os.path.join(settings.MEDIA_ROOT, path)
+            os.unlink(abs_path)
 
 
 @pytest.fixture()
