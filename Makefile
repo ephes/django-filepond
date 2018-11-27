@@ -28,10 +28,10 @@ clean-pyc: ## remove Python file artifacts
 	find . -name '*~' -exec rm -f {} +
 
 lint: ## check style with flake8
-	flake8 filepond tests
+	flake8 filepond tests testapp
 
 black: ## paint it black
-	black filepond tests
+	black filepond tests testapp
 
 test: ## run tests quickly with the default Python
 	python runtests.py tests
