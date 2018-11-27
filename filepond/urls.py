@@ -1,3 +1,4 @@
+from django.urls import path
 from django.conf.urls import url
 from django.views.decorators.csrf import csrf_exempt
 
@@ -6,8 +7,10 @@ from . import views
 
 app_name = "filepond"
 urlpatterns = [
-    url(
-        regex=r"^process/$",
+    path("process", view=csrf_exempt(views.UploadCreateView.as_view()), name="process"),
+    path(
+        # process, but give an app name to dispatch the upload to
+        "process/<path:app_name>",
         view=csrf_exempt(views.UploadCreateView.as_view()),
         name="process",
     ),

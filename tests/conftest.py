@@ -9,7 +9,7 @@ from .factories import UserFactory
 from filepond.utils import storage_walk_paths
 
 
-@pytest.fixture(scope='session', autouse=True)
+@pytest.fixture(scope="session", autouse=True)
 def media_dir_cleanup():
     # Will be executed before the first test
     # and collects all paths in media root, that already
