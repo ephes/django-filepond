@@ -4,6 +4,7 @@ import pytest
 
 from django.conf import settings
 from django.core.files.storage import default_storage
+from django.core.files.uploadedfile import SimpleUploadedFile
 
 from .factories import UserFactory
 from filepond.utils import storage_walk_paths
@@ -24,6 +25,12 @@ def media_dir_cleanup():
         if path not in existing_paths:
             abs_path = os.path.join(settings.MEDIA_ROOT, path)
             os.unlink(abs_path)
+
+
+@pytest.fixture()
+def fixture_dir():
+    curdir = os.path.dirname(os.path.realpath(__file__))
+    return os.path.join(curdir, "fixtures")
 
 
 @pytest.fixture()
@@ -61,3 +68,27 @@ def small_jpeg_io():
     im_io.seek(0)
     im_io.name = "testimage.jpg"
     return im_io
+
+
+def read_test_m4a(fixture_dir):
+    with open(os.path.join(fixture_dir, "test.m4a"), "rb") as f:
+        m4a = f.read()
+    return m4a
+
+
+@pytest.fixture()
+def m4a_audio_django_file(fixture_dir):
+    m4a = read_test_m4a(fixture_dir)
+    simple_m4a = SimpleUploadedFile(
+        name="test.m4a", content=m4a, content_type="audio/mp4"
+    )
+    return simple_m4a
+
+
+@pytest.fixture()
+def m4a_audio_io(fixture_dir):
+    m4a = read_test_m4a(fixture_dir)
+    audio_io = io.BytesIO(m4a)
+    audio_io.seek(0)
+    audio_io.name = "testaudio.m4a"
+    return audio_io

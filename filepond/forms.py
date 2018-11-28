@@ -13,7 +13,6 @@ def get_model_form(
     upload_model, upload_field_name="original", upload_fields=None, user_field=None
 ):
     """Convenience function to Create an upload form."""
-    print("upload_field name + upload_fields", upload_field_name, upload_fields)
     if upload_fields is None:
         upload_fields = []
     if upload_field_name not in upload_fields:

@@ -14,3 +14,16 @@ class LocalImage(TimeStampedModel):
 
     def __str__(self):
         return f"{self.pk} {self.image.name}"
+
+
+class LocalAudio(TimeStampedModel):
+    """
+    Receive test audio tracks via filepond.
+    """
+
+    owner = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
+    m4a = models.FileField(upload_to="testapp/audio", blank=True, null=True)
+    mp3 = models.FileField(upload_to="testapp/audio", blank=True, null=True)
+
+    def __str__(self):
+        return f"audio: {self.pk}"
