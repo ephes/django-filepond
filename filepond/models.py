@@ -8,11 +8,6 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from model_utils.models import TimeStampedModel
 
 
-def upload_to(instance, filename):
-    print("upload to function: ", instance, filename)
-    return instance.get_upload_path(filename)
-
-
 class Upload(TimeStampedModel):
     """
     Hold uploaded files and a generic relation to the model
