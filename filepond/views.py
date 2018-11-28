@@ -1,6 +1,5 @@
 from django.apps import apps
 from django.http import HttpResponse
-from django.db.utils import IntegrityError
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import CreateView, DeleteView, DetailView
 
@@ -31,7 +30,6 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
 
         # save upload into target model
         model = form.save(commit=False)
-        print("form valid model: ", model, getattr(model, upload_field_name).path)
         if user_field is not None:
             setattr(model, user_field, self.request.user)
         super().form_valid(form)
@@ -45,16 +43,12 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
                 content_object=model,
             )
             upload_pk = upload.pk
-            print("upload model: ", upload, upload.original.path)
 
-        print("form valid model: ", model, getattr(model, upload_field_name).url)
         # return primary key of upload model, because we don't want
         # to have to guess which model to delete on post to revert endpoint
         return HttpResponse(f"{upload_pk}", status=201)
 
     def form_invalid(self, form):
-        print("form invalid")
-        print(form.errors)
         return super().form_invalid(form)
 
     def register_upload_app(self, request, *args, **kwargs):
@@ -73,13 +67,7 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
         if upload_field_name != "original":
             request.FILES[upload_field_name] = request.FILES.pop("original")[0]
 
-        print("upload attr: ", upload_field_name)
-
     def post(self, request, *args, **kwargs):
-        # default settings for model and form - they might be overwritten
-        # by register_upload_app
-        self.model = Upload
-
         # if file was uploaded by filepond, change the field name
         if "filepond" in request.FILES:
             request.FILES["original"] = request.FILES.pop("filepond")[0]
