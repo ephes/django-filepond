@@ -79,9 +79,9 @@ class UploadRevertView(LoginRequiredMixin, DeleteView):
     model = Upload
 
     def delete(self, request, *args, **kwargs):
-        image = self.model.objects.get(pk=int(request.body))
-        if self.request.user == image.user:
-            image.delete()
+        upload = self.model.objects.get(pk=int(request.body))
+        if self.request.user == upload.user:
+            upload.delete()
         return HttpResponse("", status=200)
 
 
