@@ -24,6 +24,14 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
     def get_success_url(self):
         return None
 
+    def get_form_kwargs(self):
+        """If an instance is in context, add it to form creation and
+        switch from create to update."""
+        form_kwargs = super().get_form_kwargs()
+        if "instance" in self.context:
+            form_kwargs["instance"] = self.context["instance"]
+        return form_kwargs
+
     def form_valid(self, form):
         user_field = self.context["user_field"]
         upload_field_name = self.context["upload_field_name"]
