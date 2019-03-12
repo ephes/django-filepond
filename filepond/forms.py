@@ -17,7 +17,6 @@ def get_model_form(
         upload_fields = []
     if upload_field_name not in upload_fields:
         upload_fields.append(upload_field_name)
-    print(upload_model, upload_fields)
 
     class DynamicUploadForm(forms.ModelForm):
         class Meta:
