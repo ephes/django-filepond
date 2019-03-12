@@ -3,6 +3,11 @@
 History
 -------
 
+0.1.2 (2019-03-12)
+++++++++++++++++++
+
+* Allow upload to be added to existing model instance
+
 0.1.1 (2019-02-28)
 ++++++++++++++++++
 
