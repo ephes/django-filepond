@@ -3,6 +3,12 @@
 History
 -------
 
+0.1.3 (2022-11-05)
+++++++++++++++++++
+
+* Support recent Django versions
+* Use flit instead of setup.py
+
 0.1.2 (2019-03-12)
 ++++++++++++++++++
 
