@@ -1,9 +1,7 @@
-from django.urls import path
-from django.conf.urls import url
+from django.urls import path, re_path
 from django.views.decorators.csrf import csrf_exempt
 
 from . import views
-
 
 app_name = "filepond"
 urlpatterns = [
@@ -14,13 +12,13 @@ urlpatterns = [
         view=csrf_exempt(views.UploadCreateView.as_view()),
         name="process",
     ),
-    url(
-        regex=r"^revert/$",
+    path(
+        "revert/",
         view=csrf_exempt(views.UploadRevertView.as_view()),
         name="revert",
     ),
-    url(
-        regex=r"^get/(?P<pk>[0-9]+)/(?P<size>[\w]+)/$",
+    re_path(
+        r"^get/(?P<pk>[0-9]+)/(?P<size>[\w]+)/$",
         view=views.FileView.as_view(),
         name="get",
     ),
