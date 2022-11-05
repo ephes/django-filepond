@@ -1,10 +1,10 @@
 from django.apps import apps
-from django.http import HttpResponse
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.http import HttpResponse
 from django.views.generic import CreateView, DeleteView, DetailView
 
-from .models import Upload
 from .forms import get_model_form
+from .models import Upload
 
 
 def default_upload_handler(request):
@@ -86,10 +86,11 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
 class UploadRevertView(LoginRequiredMixin, DeleteView):
     model = Upload
 
-    def delete(self, request, *args, **kwargs):
+    def post(self, request, *args, **kwargs):
         upload = self.model.objects.get(pk=int(request.body))
         if self.request.user == upload.user:
-            upload.content_object.delete()
+            if upload.content_object is not None:
+                upload.content_object.delete()
             upload.delete()
         return HttpResponse("", status=200)
 
