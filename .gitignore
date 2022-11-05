@@ -55,3 +55,6 @@ docs/_build
 
 # test uploads
 tests/media
+
+# virtualenvs
+.venv
