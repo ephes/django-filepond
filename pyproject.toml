@@ -8,7 +8,7 @@ authors = [
     {name = "Jochen Wersdörfer", email = "jochen-filepond@wersdoerfer.de"},
 ]
 dynamic = ["version", "description"]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 keywords = [
     "upload",
     "filepond",
@@ -27,9 +27,9 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Web Environment",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
 ]
 
 dependencies = [
@@ -74,7 +74,6 @@ DJANGO_SETTINGS_MODULE = "tests.settings"
 minversion = "6.0"
 testpaths = ["tests"]
 filterwarnings = [
-    "ignore::django.utils.deprecation.RemovedInDjango50Warning",
     "ignore::DeprecationWarning",
 ]
 addopts = [
