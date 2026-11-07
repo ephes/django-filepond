@@ -1,5 +1,4 @@
 import pytest
-
 from django.urls import reverse
 
 from filepond.models import Upload
@@ -49,7 +48,7 @@ class TestImageUpload:
         r = client.login(username=user2.username, password=user2._password)
 
         r = client.post(self.revert_url, str(image_pk), content_type="application/json")
-        assert r.status_code == 200
+        assert r.status_code == 404
         assert Upload.objects.filter(pk=image_pk).count() == 1
 
     @pytest.mark.django_db

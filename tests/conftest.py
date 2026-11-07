@@ -1,36 +1,14 @@
-import os
 import io
-import pytest
 
-from django.conf import settings
-from django.core.files.storage import default_storage
+import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 
 from .factories import UserFactory
-from filepond.utils import storage_walk_paths
 
 
-@pytest.fixture(scope="session", autouse=True)
-def media_dir_cleanup():
-    # Will be executed before the first test
-    # and collects all paths in media root, that already
-    # existed before running the tests
-    print("media root: ", settings.MEDIA_ROOT)
-    existing_paths = set(storage_walk_paths(default_storage))
-    yield existing_paths
-    # Will be executed after the last test
-    # and finds all paths in media root which were added
-    # during the tests and remove them
-    for path in storage_walk_paths(default_storage):
-        if path not in existing_paths:
-            abs_path = os.path.join(settings.MEDIA_ROOT, path)
-            os.unlink(abs_path)
-
-
-@pytest.fixture()
-def fixture_dir():
-    curdir = os.path.dirname(os.path.realpath(__file__))
-    return os.path.join(curdir, "fixtures")
+@pytest.fixture(autouse=True)
+def isolated_media(settings, tmp_path):
+    settings.MEDIA_ROOT = str(tmp_path / "media")
 
 
 @pytest.fixture()
@@ -70,24 +48,21 @@ def small_jpeg_io():
     return im_io
 
 
-def read_test_m4a(fixture_dir):
-    with open(os.path.join(fixture_dir, "test.m4a"), "rb") as f:
-        m4a = f.read()
-    return m4a
+def synthetic_m4a():
+    # Uploads are stored verbatim; no codec or real recording is needed.
+    return b"synthetic audio payload"
 
 
 @pytest.fixture()
-def m4a_audio_django_file(fixture_dir):
-    m4a = read_test_m4a(fixture_dir)
-    simple_m4a = SimpleUploadedFile(
-        name="test.m4a", content=m4a, content_type="audio/mp4"
-    )
+def m4a_audio_django_file():
+    m4a = synthetic_m4a()
+    simple_m4a = SimpleUploadedFile(name="test.m4a", content=m4a, content_type="audio/mp4")
     return simple_m4a
 
 
 @pytest.fixture()
-def m4a_audio_io(fixture_dir):
-    m4a = read_test_m4a(fixture_dir)
+def m4a_audio_io():
+    m4a = synthetic_m4a()
     audio_io = io.BytesIO(m4a)
     audio_io.seek(0)
     audio_io.name = "testaudio.m4a"

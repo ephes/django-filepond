@@ -39,14 +39,20 @@ Add Django Filepond's URL patterns:
 
 .. code-block:: python
 
+    from django.urls import include, path
     from filepond import urls as filepond_urls
 
 
     urlpatterns = [
         ...
-        url(r'^', include(filepond_urls)),
+        path('', include(filepond_urls)),
         ...
     ]
+
+Cookie-authenticated uploads and reverts require Django CSRF protection.
+Configure Filepond's process and revert requests to send ``X-CSRFToken``;
+see ``docs/usage.rst`` for the client configuration, status codes and the
+transaction/storage deletion guarantees.
 
 Features
 --------

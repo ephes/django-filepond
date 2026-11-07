@@ -3,6 +3,14 @@
 History
 -------
 
+Unreleased
+++++++++++
+
+* Require CSRF tokens for authenticated process/revert requests; document client headers.
+* Validate revert IDs and return indistinguishable 404s for missing and foreign uploads.
+* Delete linked objects and uploads atomically, then remove unreferenced owned
+  storage keys after commit; log cleanup failures for manual retry.
+
 0.1.3 (2022-11-05)
 ++++++++++++++++++
 
