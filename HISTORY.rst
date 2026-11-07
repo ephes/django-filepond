@@ -6,6 +6,12 @@ History
 Unreleased
 ++++++++++
 
+* Restrict upload detail lookups to the authenticated owner.
+* Save linked uploads and registrations atomically; compensate failed saves
+  by cleaning newly created unreferenced file keys while retaining existing files.
+* Reject missing or ambiguous upload files with 400 before calling application hooks.
+* Return 404 for unsupported application upload routes; preserve registered hook errors.
+
 * Require CSRF tokens for authenticated process/revert requests; document client headers.
 * Validate revert IDs and return indistinguishable 404s for missing and foreign uploads.
 * Delete linked objects and uploads atomically, then remove unreferenced owned
