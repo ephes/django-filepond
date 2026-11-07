@@ -28,19 +28,19 @@ clean-pyc: ## remove Python file artifacts
 	find . -name '*~' -exec rm -f {} +
 
 lint: ## check style with flake8
-	flake8 filepond tests testapp
+	python -m flake8 filepond tests testapp scripts
 
 black: ## paint it black
 	black filepond tests testapp
 
 test: ## run tests quickly with the default Python
-	python runtests.py tests
+	python -m pytest
 
 test-all: ## run tests on every Python version with tox
 	tox
 
 coverage: ## check code coverage quickly with the default Python
-	coverage run --source filepond runtests.py tests
+	python -m pytest --cov=filepond --cov-report=term-missing --cov-report=html
 	coverage report -m
 	coverage html
 	open htmlcov/index.html
@@ -59,5 +59,5 @@ release: clean ## package and upload a release
 	twine upload dist/*
 
 sdist: clean ## package
-	python setup.py sdist
+	python -m build --sdist
 	ls -l dist

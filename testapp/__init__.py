@@ -1,6 +1,7 @@
 def upload_handler(request):
-    from . import models
     from filepond.forms import get_model_form
+
+    from . import models
 
     lookup = {}
     for ending in ("jpg", "jpeg", "png", "gif"):
@@ -13,6 +14,4 @@ def upload_handler(request):
     ending = file_name.lower().split(".")[-1]
     print("request filename: ", file_name, ending)
     local_model, upload_field_name, user_field = lookup[ending]
-    return get_model_form(
-        local_model, upload_field_name=upload_field_name, user_field=user_field
-    )
+    return get_model_form(local_model, upload_field_name=upload_field_name, user_field=user_field)

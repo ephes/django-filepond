@@ -11,6 +11,12 @@ Unreleased
 * Delete linked objects and uploads atomically, then remove unreferenced owned
   storage keys after commit; log cleanup failures for manual retry.
 
+* Preserve the library's AutoField primary key regardless of project defaults.
+* Replace implicit tox dependencies with an explicit Django/Python matrix and
+  isolated installed-package tests with fresh migrations and synthetic media.
+* Gate pushes and pull requests with read-only Actions: lint, matrix tests,
+  wheel/sdist build and installed-distribution resource/upload smoke checks.
+
 0.1.3 (2022-11-05)
 ++++++++++++++++++
 
