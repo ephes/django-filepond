@@ -12,7 +12,7 @@ USE_TZ = True
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = "lbk&8(j#cf#=22u!09m9vx$@ca+8ar^oj^#q&k+*v*_4zio_2&"
 
-DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}}
+DATABASES = {alias: {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"} for alias in ("default", "uploads")}
 
 ROOT_URLCONF = "tests.urls"
 

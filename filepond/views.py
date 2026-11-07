@@ -2,8 +2,9 @@ import logging
 
 from django.apps import apps
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.files.uploadedfile import UploadedFile
 from django.db import models, router, transaction
-from django.http import HttpResponse, HttpResponseBadRequest
+from django.http import Http404, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404
 from django.views.generic import CreateView, DeleteView, DetailView
 
@@ -40,21 +41,37 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
         user_field = self.context["user_field"]
         upload_field_name = self.context["upload_field_name"]
 
-        # save upload into target model
         model = form.save(commit=False)
         if user_field is not None:
             setattr(model, user_field, self.request.user)
-        super().form_valid(form)
-
-        # if target model != Upload, save an Upload instance, too
-        upload_pk = model.pk
-        if model.__class__ != Upload:
-            upload = Upload.objects.create(
-                original=getattr(model, upload_field_name),
-                user=self.request.user,
-                content_object=model,
-            )
-            upload_pk = upload.pk
+        using = router.db_for_write(type(model), instance=model)
+        created_files = []
+        try:
+            with transaction.atomic(using=using):
+                # Save incoming files explicitly so their final storage keys are
+                # known even if the subsequent model/registration save fails.
+                for field in model._meta.fields:
+                    incoming = form.cleaned_data.get(field.name)
+                    if isinstance(field, models.FileField) and isinstance(incoming, UploadedFile):
+                        stored = getattr(model, field.name)
+                        stored.save(incoming.name, incoming, save=False)
+                        created_files.append((stored.storage, stored.name))
+                model.save(using=using)
+                form.save_m2m()
+                self.object = model
+                upload_pk = model.pk
+                if model.__class__ != Upload:
+                    upload = Upload.objects.using(using).create(
+                        original=getattr(model, upload_field_name).name,
+                        user=self.request.user,
+                        content_object=model,
+                    )
+                    upload_pk = upload.pk
+        except Exception:
+            # The savepoint has rolled back; never remove old/shared keys.
+            for storage, name in created_files:
+                delete_unreferenced_file(storage, name, using)
+            raise
 
         # return primary key of upload model, because we don't want
         # to have to guess which model to delete on post to revert endpoint
@@ -71,7 +88,13 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
             return
 
         # get the new form_class
-        upload_handler = apps.get_app_config(app_name).module.upload_handler
+        try:
+            app = apps.get_app_config(app_name)
+        except LookupError:
+            raise Http404("Unsupported upload application") from None
+        upload_handler = getattr(app.module, "upload_handler", None)
+        if not callable(upload_handler):
+            raise Http404("Unsupported upload application")
         self.form_class, self.context = upload_handler(request)
 
         # move file input label to requested upload_field_name
@@ -80,6 +103,11 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
             request.FILES[upload_field_name] = request.FILES.pop("original")[0]
 
     def post(self, request, *args, **kwargs):
+        if len(request.FILES) != 1 or not any(name in request.FILES for name in ("filepond", "original")):
+            return HttpResponseBadRequest("Invalid upload")
+        input_name = "filepond" if "filepond" in request.FILES else "original"
+        if len(request.FILES.getlist(input_name)) != 1:
+            return HttpResponseBadRequest("Invalid upload")
         # if file was uploaded by filepond, change the field name
         if "filepond" in request.FILES:
             request.FILES["original"] = request.FILES.pop("filepond")[0]
@@ -125,9 +153,12 @@ def delete_unreferenced_file(storage, name, using):
                         return
         storage.delete(name)
     except Exception:
-        # The rows have committed. Report orphan cleanup for operator retry.
-        logging.getLogger(__name__).exception("Unable to remove reverted upload storage key %r", name)
+        # Report orphan cleanup for operator retry.
+        logging.getLogger(__name__).exception("Unable to remove upload storage key %r", name)
 
 
 class FileView(LoginRequiredMixin, DetailView):
     model = Upload
+
+    def get_queryset(self):
+        return super().get_queryset().filter(user=self.request.user)

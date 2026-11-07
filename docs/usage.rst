@@ -77,3 +77,53 @@ revert still returns 200. There is no durable cleanup queue or automatic retry.
 Monitor these logs and retry failed keys after checking for surviving
 references. A process crash between database commit and cleanup can also
 leave an orphan. Database rollback always retains the original bytes.
+
+Upload handlers and responses
+-----------------------------
+
+``/process`` stores an Upload directly. ``/process/<app_label>`` accepts an
+installed application's label only when its application module (usually
+``__init__.py``) exposes a callable ``upload_handler(request)``. The hook returns
+``(ModelFormClass, context)``; ``get_model_form`` in ``filepond.forms`` builds
+this pair with ``upload_field_name`` and optional ``user_field``. To update an
+existing object, add ``instance`` to context. The hook must authorize that
+instance for the requesting user before returning it. Reverting an upload
+always deletes its linked object, including a pre-existing object updated this
+way; it does not restore the previous file or object state.
+
+Send exactly one file under ``filepond`` or ``original``. Missing, unexpected
+or multiple files receive 400 (``Invalid upload``) before any handler runs.
+The hook sees the file as ``request.FILES['original']``; Filepond then maps it
+to the configured model field. Unsupported applications receive 404 for valid
+file requests. Exceptions inside a registered hook remain application errors;
+validate application-specific input in the hook or form rather than relying
+on route error handling. Successful uploads return 201 with the Upload ID.
+
+The linked model and Upload registration save in one transaction on the linked
+model's write database (or Upload's database for the default handler). All
+linked rows, users, content types and form relations must be available on that
+same database; configure routers accordingly. On a failure within this save,
+the rows roll back and newly saved incoming file keys are removed through the
+storage API if no surviving registered FileField references them. Existing
+keys are retained, including a replaced instance's previous file. Successful
+replacement also retains the previous file; its retirement is the host's job.
+
+Storage must allocate fresh keys without overwriting existing bytes. Shared
+backends must reuse the same storage instance, with the same reference and
+concurrency restrictions described for revert above. Custom model save hooks
+must not create extra files or eagerly delete old files. Incoming files are
+saved before the model's save hooks/signals run, so ``upload_to`` must not depend
+on state those hooks set. Database transactions cannot roll back storage writes: cleanup is best effort and logs failures for
+manual retry. A crash, a storage save that writes then raises without returning
+its key, or rollback of an enclosing transaction after this view succeeds can
+leave orphaned files; there is no rollback callback or durable cleanup queue.
+
+Detail access
+-------------
+
+``/get/<id>/<size>/`` requires login and resolves only Uploads belonging to the
+requesting user. Foreign and nonexistent IDs both return 404; anonymous requests
+redirect to login. Authentication alone does not authorize another user's
+upload. The host still supplies ``filepond/upload_detail.html`` and controls
+its rendering; this view does not itself stream file bytes. Storage URLs must
+have their own appropriate access policy.
