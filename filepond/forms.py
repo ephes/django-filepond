@@ -9,9 +9,7 @@ class UploadForm(forms.ModelForm):
         fields = ["original"]
 
 
-def get_model_form(
-    upload_model, upload_field_name="original", upload_fields=None, user_field=None
-):
+def get_model_form(upload_model, upload_field_name="original", upload_fields=None, user_field=None):
     """Convenience function to Create an upload form."""
     if upload_fields is None:
         upload_fields = []

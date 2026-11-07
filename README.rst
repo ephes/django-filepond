@@ -5,13 +5,10 @@ Django Filepond
 .. image:: https://badge.fury.io/py/django-filepond.svg
     :target: https://badge.fury.io/py/django-filepond
 
-.. image:: https://travis-ci.org/ephes/django-filepond.svg?branch=master
-    :target: https://travis-ci.org/ephes/django-filepond
+.. image:: https://github.com/ephes/django-filepond/actions/workflows/tests.yml/badge.svg?branch=develop
+    :target: https://github.com/ephes/django-filepond/actions/workflows/tests.yml
 
-.. image:: https://codecov.io/gh/ephes/django-filepond/branch/master/graph/badge.svg
-    :target: https://codecov.io/gh/ephes/django-filepond
-
-Django support for the fjavascript file upload library filepond
+Django support for the JavaScript file upload library filepond
 
 Documentation
 -------------
@@ -62,13 +59,41 @@ Features
 Running Tests
 -------------
 
-Does the code actually work?
+Install test/developer tools, then run the explicit compatibility matrix::
 
-::
+    python -m pip install -e '.[test,dev]'
+    python -m tox
 
-    source <YOURVIRTUALENV>/bin/activate
-    (myenv) $ pip install tox
-    (myenv) $ tox
+The matrix runs Python 3.10, 3.11 and 3.12 with Django 4.2 and 5.2, plus
+Python 3.12 with Django 6.1. All listed interpreters are required for the full
+local matrix; to run only one installed interpreter, use e.g.::
+
+    python -m tox -e py312-django52
+
+Each environment installs the wheel with test extras, verifies the Django
+version, copies synthetic tests into an isolated directory, checks packaged
+templates/static assets/migrations, applies fresh migrations and runs real
+session-authenticated upload/revert tests with temporary media and SQLite.
+Tests import the installed package, so missing distribution resources fail.
+The library keeps its existing AutoField key even in BigAutoField projects;
+regressions check both project defaults for migration drift.
+Django 4.2 is retained for compatibility testing; choose a maintained Django
+series for applications. No external storage, codec, browser or database
+service is required. No type-checking configuration is currently maintained.
+
+GitHub Actions runs this matrix on pushes and pull requests with read-only
+repository permissions, plus the following lint and build/install checks::
+
+    python -m black --check filepond tests testapp scripts
+    python -m isort --check-only filepond tests testapp scripts
+    python -m flake8 filepond tests testapp scripts
+    python -m build
+    python -m tox -e py312-django52 --recreate --installpkg dist/*.whl
+    python -m tox -e py312-django52 --recreate --installpkg dist/*.tar.gz
+
+The last two commands are shell examples; pass the single artifact path if
+your shell does not expand wildcards. Both wheel and sdist installs run the
+same migrations, resource smoke and upload suite. CI does not publish anything.
 
 Credits
 -------

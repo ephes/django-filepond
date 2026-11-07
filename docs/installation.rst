@@ -2,11 +2,8 @@
 Installation
 ============
 
-At the command line::
+Use Python 3.10 or newer and install with pip::
 
-    $ easy_install django-filepond
+    python -m pip install django-filepond
 
-Or, if you have virtualenvwrapper installed::
-
-    $ mkvirtualenv django-filepond
-    $ pip install django-filepond
+See the README for tested Django/Python combinations and developer checks.
