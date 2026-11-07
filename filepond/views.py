@@ -1,6 +1,10 @@
+import logging
+
 from django.apps import apps
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import HttpResponse
+from django.db import models, router, transaction
+from django.http import HttpResponse, HttpResponseBadRequest
+from django.shortcuts import get_object_or_404
 from django.views.generic import CreateView, DeleteView, DetailView
 
 from .forms import get_model_form
@@ -87,12 +91,42 @@ class UploadRevertView(LoginRequiredMixin, DeleteView):
     model = Upload
 
     def post(self, request, *args, **kwargs):
-        upload = self.model.objects.get(pk=int(request.body))
-        if self.request.user == upload.user:
+        # AutoField/BigAutoField IDs fit in a signed 64-bit database integer.
+        body = request.body
+        if not 1 <= len(body) <= 19 or not body.isdigit() or not 0 < int(body) <= 2**63 - 1:
+            return HttpResponseBadRequest("Invalid upload identifier")
+        using = router.db_for_write(self.model)
+        with transaction.atomic(using=using):
+            upload = get_object_or_404(
+                self.model.objects.using(using).select_for_update(), pk=int(body), user=request.user
+            )
+            storage, name = upload.original.storage, upload.original.name
             if upload.content_object is not None:
-                upload.content_object.delete()
-            upload.delete()
+                upload.content_object.delete(using=using)
+            upload.delete(using=using)
+            transaction.on_commit(lambda: delete_unreferenced_file(storage, name, using), using=using)
         return HttpResponse("", status=200)
+
+    # Filepond's default revert method is DELETE; older integrations use POST.
+    delete = post
+
+
+def delete_unreferenced_file(storage, name, using):
+    """Delete an owned key only when no registered FileField still references it."""
+    if not name:
+        return
+    try:
+        for model in apps.get_models():
+            if not router.allow_migrate_model(using, model):
+                continue
+            for field in model._meta.fields:
+                if isinstance(field, models.FileField) and field.storage is storage:
+                    if model._base_manager.using(using).filter(**{field.name: name}).exists():
+                        return
+        storage.delete(name)
+    except Exception:
+        # The rows have committed. Report orphan cleanup for operator retry.
+        logging.getLogger(__name__).exception("Unable to remove reverted upload storage key %r", name)
 
 
 class FileView(LoginRequiredMixin, DetailView):
