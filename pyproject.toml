@@ -50,7 +50,7 @@ doc = [
     "sphinx-rtd-theme",
 ]
 dev = [
-    "black==24.2.0",
+    "black==26.10.1",
     "flake8==7.0.0",
     "isort==5.13.2",
     "tox>=4,<5",
