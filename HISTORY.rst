@@ -22,6 +22,8 @@ Unreleased
   isolated installed-package tests with fresh migrations and synthetic media.
 * Gate pushes and pull requests with read-only Actions: lint, matrix tests,
   wheel/sdist build and installed-distribution resource/upload smoke checks.
+* Pin black 26.10.1 in the ``dev`` extra and the pre-commit hook
+  (GHSA-cg8m-r9f2-5wm2, GHSA-fj7x-q9j7-g6q6); ``runtests.py`` reformatted.
 
 0.1.3 (2022-11-05)
 ++++++++++++++++++
