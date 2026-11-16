@@ -100,10 +100,15 @@ infer ownership for ownerless models.
 
 A linked revert deletes its object (including a pre-existing object) only when
 the registration still uniquely matches the current file key and no other
-Upload registration refers to that object. Stale generations and other
-registrations, regardless of owner, receive 409 without changing rows or files.
+Upload registration refers to that object or to any row its deletion would
+cascade to (including multi-table parents and children that share its key).
+Stale generations and other registrations, regardless of owner, receive 409
+without changing rows or files.
 The application must reconcile conflicting registrations through its authorized
 object lifecycle. Revert does not restore previous file or object state.
+Updating an existing instance adds a further registration for that object, so
+after a replacement neither the new nor an earlier upload of that object can be
+reverted (409).
 
 Send exactly one file under ``filepond`` or ``original``. Missing, unexpected
 or multiple files receive 400 (``Invalid upload``) before any handler runs.
@@ -114,8 +119,10 @@ validate application-specific input in the hook or form rather than relying
 on route error handling. Successful uploads return 201 with the Upload ID.
 
 Linked models must use integer primary keys in the positive signed 64-bit
-domain (1 through 2**63 - 1). AutoField and BigAutoField are supported; UUID,
-text, boolean, zero and negative identities receive 400 before storage writes.
+domain (1 through 2**63 - 1). AutoField and BigAutoField are supported, as are
+multi-table inheritance children and one-to-one primary keys whose target column
+is such an integer key; UUID, text, boolean, zero and negative identities
+receive 400 before storage writes.
 Apply the ``filepond`` migrations to widen existing generic registration keys;
 existing AutoField registrations remain valid.
 

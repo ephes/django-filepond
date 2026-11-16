@@ -10,7 +10,7 @@ from django.urls import reverse
 
 from filepond.forms import get_model_form
 from filepond.models import Upload
-from testapp.models import BigAudio, LocalAudio, TextAudio
+from testapp.models import BigAudio, ChildAudio, LocalAudio, ProfileAudio, TextAudio
 
 pytestmark = pytest.mark.django_db(transaction=True)
 PROCESS = reverse("filepond:process", kwargs={"app_name": "testapp"})
@@ -32,6 +32,24 @@ def test_bigint_registration_and_revert(client, user, identity, django_capture_o
     with django_capture_on_commit_callbacks(execute=True):
         assert client.post(REVERT, str(upload.pk), content_type="text/plain").status_code == 200
     assert not BigAudio.objects.filter(pk=identity).exists()
+    assert not storage.exists(name)
+
+
+@pytest.mark.parametrize("model,field", [(ChildAudio, "m4a"), (ProfileAudio, "original")])
+def test_relation_primary_key_registration_and_revert(client, user, model, field, django_capture_on_commit_callbacks):
+    client.force_login(user)
+    form_class, context = get_model_form(model, upload_field_name=field, user_field="owner")
+    with patch("testapp.upload_handler", return_value=(form_class, context)):
+        response = client.post(PROCESS, {"original": SimpleUploadedFile("linked.bin", b"synthetic")})
+    assert response.status_code == 201
+    upload = Upload.objects.get(pk=int(response.content))
+    linked = model.objects.get()
+    assert upload.content_object == linked
+    storage, name = getattr(linked, field).storage, upload.original.name
+    assert storage.exists(name)
+    with django_capture_on_commit_callbacks(execute=True):
+        assert client.post(REVERT, str(upload.pk), content_type="text/plain").status_code == 200
+    assert not model.objects.exists()
     assert not storage.exists(name)
 
 
@@ -77,3 +95,30 @@ def test_bigint_migration_preserves_existing_generic_link(user):
     bigint = new_upload.objects.create(user_id=user.pk, original="big.bin", object_id=2**32 + 17)
     assert new_upload.objects.get(pk=bigint.pk).object_id == 2**32 + 17
     assert new_upload._meta.get_field("object_id").get_internal_type() == "PositiveBigIntegerField"
+
+
+@pytest.mark.parametrize("revert_child", [True, False])
+def test_multi_table_registrations_block_cascading_revert(client, user, revert_child):
+    client.force_login(user)
+    child_form, child_context = get_model_form(ChildAudio, upload_field_name="m4a", user_field="owner")
+    with patch("testapp.upload_handler", return_value=(child_form, child_context)):
+        response = client.post(PROCESS, {"original": SimpleUploadedFile("child.bin", b"child")})
+    assert response.status_code == 201
+    child_upload = Upload.objects.get(pk=int(response.content))
+    child = ChildAudio.objects.get()
+    parent_form, parent_context = get_model_form(LocalAudio, upload_field_name="mp3", user_field="owner")
+    parent_context["instance"] = LocalAudio.objects.get(pk=child.pk)
+    with patch("testapp.upload_handler", return_value=(parent_form, parent_context)):
+        response = client.post(PROCESS, {"original": SimpleUploadedFile("parent.bin", b"parent")})
+    assert response.status_code == 201
+    parent_upload = Upload.objects.get(pk=int(response.content))
+    assert child_upload.content_type != parent_upload.content_type
+    child.refresh_from_db()
+    names = [child.m4a.name, child.mp3.name]
+
+    reverted = child_upload if revert_child else parent_upload
+    assert client.post(REVERT, str(reverted.pk), content_type="text/plain").status_code == 409
+    assert ChildAudio.objects.filter(pk=child.pk).exists()
+    assert LocalAudio.objects.filter(pk=child.pk).exists()
+    assert Upload.objects.filter(pk__in=[child_upload.pk, parent_upload.pk]).count() == 2
+    assert all(child.m4a.storage.exists(name) for name in names)

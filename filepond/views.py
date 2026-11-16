@@ -2,9 +2,12 @@ import logging
 
 from django.apps import apps
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import SuspiciousOperation
 from django.core.files.uploadedfile import UploadedFile
 from django.db import models, router, transaction
+from django.db.models import Q
+from django.db.models.deletion import Collector
 from django.http import Http404, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404
 from django.views.generic import CreateView, DeleteView, DetailView
@@ -161,13 +164,7 @@ class UploadRevertView(LoginRequiredMixin, DeleteView):
                     else None
                 )
                 stored = linked_file(linked, name) if linked is not None else None
-                other_registrations = (
-                    self.model.objects.using(using)
-                    .filter(content_type_id=upload.content_type_id, object_id=upload.object_id)
-                    .exclude(pk=upload.pk)
-                    .exists()
-                )
-                if stored is None or other_registrations:
+                if stored is None or dependent_registrations(upload, linked, using):
                     return HttpResponse("Upload no longer exclusively owns the linked object", status=409)
                 storage = stored.storage
                 linked.delete(using=using)
@@ -179,11 +176,39 @@ class UploadRevertView(LoginRequiredMixin, DeleteView):
     delete = post
 
 
+def integer_identity(model):
+    """Whether a model's primary key column is an integer (generic-link capable) column."""
+    pk_field = model._meta.pk
+    # Multi-table children and one-to-one primary keys store the target's column.
+    while pk_field.is_relation:
+        pk_field = pk_field.target_field
+    return isinstance(pk_field, models.IntegerField)
+
+
 def supported_identity(model):
     """Generic links support positive signed 64-bit integer identities only."""
-    return isinstance(model._meta.pk, models.IntegerField) and (
-        model.pk is None or (type(model.pk) is int and 0 < model.pk <= 2**63 - 1)
-    )
+    return integer_identity(model) and (model.pk is None or (type(model.pk) is int and 0 < model.pk <= 2**63 - 1))
+
+
+def dependent_registrations(upload, linked, using):
+    """Whether deleting ``linked`` would remove a row another Upload registration refers to.
+
+    The collector follows the same cascades as ``linked.delete()``, including
+    multi-table parents and children that share the linked key.
+    """
+    collector = Collector(using=using)
+    collector.collect([linked])
+    content_types = ContentType.objects.db_manager(using)
+    query = Q()
+    for model, instances in collector.data.items():
+        if model is not Upload and integer_identity(model):
+            pks = [instance.pk for instance in instances]
+            query |= Q(content_type=content_types.get_for_model(model), object_id__in=pks)
+    for queryset in collector.fast_deletes:
+        if queryset.model is not Upload and integer_identity(queryset.model):
+            pks = queryset.values_list("pk", flat=True)
+            query |= Q(content_type=content_types.get_for_model(queryset.model), object_id__in=pks)
+    return bool(query) and Upload.objects.using(using).filter(query).exclude(pk=upload.pk).exists()
 
 
 def linked_file(model, name):

@@ -38,3 +38,16 @@ class TextAudio(models.Model):
     id = models.CharField(primary_key=True, max_length=40)
     owner = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
     original = models.FileField(upload_to="testapp/text")
+
+
+class ChildAudio(LocalAudio):
+    """Multi-table inheritance child whose primary key is the parent link."""
+
+    title = models.CharField(max_length=40, blank=True)
+
+
+class ProfileAudio(models.Model):
+    """One-to-one primary key referencing the integer user key."""
+
+    owner = models.OneToOneField(get_user_model(), on_delete=models.CASCADE, primary_key=True)
+    original = models.FileField(upload_to="testapp/profile")
