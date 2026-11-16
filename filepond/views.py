@@ -43,16 +43,18 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
         upload_field_name = self.context["upload_field_name"]
 
         model = form.save(commit=False)
-        if user_field is not None:
-            setattr(model, user_field, self.request.user)
         using = router.db_for_write(type(model), instance=model)
         created_files = []
         replaced_files = []
         try:
             with transaction.atomic(using=using):
                 previous = None
-                if not model._state.adding:
-                    previous = type(model)._base_manager.using(using).select_for_update().get(pk=model.pk)
+                if model.pk is not None:
+                    previous = type(model)._base_manager.using(using).select_for_update().filter(pk=model.pk).first()
+                if user_field is not None:
+                    if previous is not None and getattr(previous, user_field) != self.request.user:
+                        raise Http404("Upload instance unavailable")
+                    setattr(model, user_field, self.request.user)
                 # Save incoming files explicitly so their final storage keys are
                 # known even if the subsequent model/registration save fails.
                 for field in model._meta.fields:

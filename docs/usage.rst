@@ -89,8 +89,12 @@ installed application's label only when its application module (usually
 ``__init__.py``) exposes a callable ``upload_handler(request)``. The hook returns
 ``(ModelFormClass, context)``; ``get_model_form`` in ``filepond.forms`` builds
 this pair with ``upload_field_name`` and optional ``user_field``. To update an
-existing object, add ``instance`` to context. The hook must authorize that
-instance for the requesting user before returning it. Reverting an upload
+existing object, add ``instance`` to context. With ``user_field`` configured, Filepond checks the persisted owner on the
+write database before any storage save or model mutation; foreign instances
+receive 404. A mutable instance returned by the hook cannot override that check.
+The hook remains responsible for other application permissions. Without
+``user_field``, the hook must authorize the instance itself; Filepond cannot
+infer ownership for ownerless models. Reverting an upload
 always deletes its linked object, including a pre-existing object updated this
 way; it does not restore the previous file or object state.
 

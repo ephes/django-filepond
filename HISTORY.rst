@@ -6,6 +6,9 @@ History
 Unreleased
 ++++++++++
 
+* Verify persisted ownership of existing upload instances before storage writes;
+  refuse foreign instances with 404 instead of transferring ownership.
+
 * Retire replaced incoming-file keys after commit when no registered FileField
   still references them; retain old keys on rollback and when shared.
 
