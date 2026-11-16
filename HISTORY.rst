@@ -6,6 +6,9 @@ History
 Unreleased
 ++++++++++
 
+* Retire replaced incoming-file keys after commit when no registered FileField
+  still references them; retain old keys on rollback and when shared.
+
 * Resolve linked reverts against the source FileField storage and refuse ambiguous
   linked registrations and reverts.
 

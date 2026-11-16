@@ -64,3 +64,42 @@ def test_ambiguous_linked_registration_rolls_back(client, user):
         assert not storage.exists("testapp/audio/sample.m4a")
     assert not Upload.objects.exists()
     assert not LocalAudio.objects.exists()
+
+
+@pytest.mark.parametrize("shared", [False, True])
+@pytest.mark.parametrize("fail", [False, True])
+def test_replacement_retires_only_committed_unreferenced_keys(
+    client, user, shared, fail, django_capture_on_commit_callbacks
+):
+    from django.db import IntegrityError
+    from django.db.models.query import QuerySet
+
+    from filepond.forms import get_model_form
+
+    client.force_login(user)
+    storage = InMemoryStorage()
+    with patch.object(LocalAudio._meta.get_field("m4a"), "storage", storage):
+        audio = LocalAudio.objects.create(owner=user, m4a=SimpleUploadedFile("old.m4a", b"old"))
+        old_name = audio.m4a.name
+        if shared:
+            LocalAudio.objects.create(owner=user, m4a=old_name)
+        form_class, context = get_model_form(LocalAudio, upload_field_name="m4a", user_field="owner")
+        context["instance"] = audio
+        with django_capture_on_commit_callbacks(execute=True):
+            with patch("testapp.upload_handler", return_value=(form_class, context)):
+                if fail:
+                    with patch.object(QuerySet, "create", side_effect=IntegrityError("registration failed")):
+                        with pytest.raises(IntegrityError, match="registration failed"):
+                            client.post(PROCESS, {"original": SimpleUploadedFile("new.m4a", b"new")})
+                else:
+                    assert client.post(PROCESS, {"original": SimpleUploadedFile("new.m4a", b"new")}).status_code == 201
+                assert storage.open(old_name).read() == b"old"
+        audio.refresh_from_db()
+        if fail:
+            assert audio.m4a.name == old_name
+            assert not storage.exists("testapp/audio/new.m4a")
+            assert not Upload.objects.exists()
+        else:
+            assert audio.m4a.read() == b"new"
+            assert Upload.objects.get().original.name == audio.m4a.name
+        assert storage.exists(old_name) == (shared or fail)

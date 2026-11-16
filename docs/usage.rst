@@ -109,7 +109,10 @@ same database; configure routers accordingly. On a failure within this save,
 the rows roll back and newly saved incoming file keys are removed through the
 storage API if no surviving registered FileField references them. Existing
 keys are retained, including a replaced instance's previous file. Successful
-replacement also retains the previous file; its retirement is the host's job.
+replacement retires previous keys only after commit and only when no surviving
+registered FileField on the same database and storage instance references them.
+This includes old Upload wrappers: a key still registered by another Upload is
+retained. Cleanup failures use the same logging and manual retry contract as revert.
 
 Storage must allocate fresh keys without overwriting existing bytes. Shared
 backends must reuse the same storage instance, with the same reference and

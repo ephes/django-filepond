@@ -47,13 +47,20 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
             setattr(model, user_field, self.request.user)
         using = router.db_for_write(type(model), instance=model)
         created_files = []
+        replaced_files = []
         try:
             with transaction.atomic(using=using):
+                previous = None
+                if not model._state.adding:
+                    previous = type(model)._base_manager.using(using).select_for_update().get(pk=model.pk)
                 # Save incoming files explicitly so their final storage keys are
                 # known even if the subsequent model/registration save fails.
                 for field in model._meta.fields:
                     incoming = form.cleaned_data.get(field.name)
                     if isinstance(field, models.FileField) and isinstance(incoming, UploadedFile):
+                        if previous is not None:
+                            old = getattr(previous, field.name)
+                            replaced_files.append((old.storage, old.name))
                         stored = getattr(model, field.name)
                         stored.save(incoming.name, incoming, save=False)
                         created_files.append((stored.storage, stored.name))
@@ -71,6 +78,10 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
                         content_object=model,
                     )
                     upload_pk = upload.pk
+                for storage, name in replaced_files:
+                    transaction.on_commit(
+                        lambda storage=storage, name=name: delete_unreferenced_file(storage, name, using), using=using
+                    )
         except Exception:
             # The savepoint has rolled back; never remove old/shared keys.
             for storage, name in created_files:
