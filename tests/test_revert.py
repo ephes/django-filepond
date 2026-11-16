@@ -40,6 +40,7 @@ def test_cookie_mutations_require_csrf(user, url):
         assert client.post(url, {"filepond": SimpleUploadedFile("test.m4a", b"synthetic")}).status_code == 403
 
 
+@pytest.mark.django_db(transaction=True)
 def test_valid_csrf_upload_and_owned_revert(user, user2):
     client = Client(enforce_csrf_checks=True)
     client.force_login(user)

@@ -46,10 +46,13 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
         if not supported_identity(model):
             return HttpResponseBadRequest("Unsupported upload identity")
         using = router.db_for_write(type(model), instance=model)
+        connection = transaction.get_connection(using)
+        if connection.in_atomic_block or not connection.get_autocommit():
+            return HttpResponseBadRequest("Upload requires autocommit outside an atomic block")
         created_files = []
         replaced_files = []
         try:
-            with transaction.atomic(using=using):
+            with transaction.atomic(using=using, durable=True):
                 previous = None
                 if model.pk is not None:
                     previous = type(model)._base_manager.using(using).select_for_update().filter(pk=model.pk).first()
@@ -89,7 +92,7 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
                         lambda storage=storage, name=name: delete_unreferenced_file(storage, name, using), using=using
                     )
         except Exception:
-            # The savepoint has rolled back; never remove old/shared keys.
+            # The upload transaction has rolled back; never remove old/shared keys.
             for storage, name in created_files:
                 delete_unreferenced_file(storage, name, using)
             raise

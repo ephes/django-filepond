@@ -10,14 +10,14 @@ class TestImageUpload:
     upload_to_testapp_url = reverse("filepond:process", kwargs={"app_name": "testapp"})
     revert_url = reverse("filepond:revert")
 
-    @pytest.mark.django_db
+    @pytest.mark.django_db(transaction=True)
     def test_upload_image_not_authenticated(self, client, small_jpeg_io):
         small_jpeg_io.seek(0)
         r = client.post(self.upload_url, {"filepond": small_jpeg_io})
         # redirect to login
         assert r.status_code == 302
 
-    @pytest.mark.django_db
+    @pytest.mark.django_db(transaction=True)
     def test_upload_image_authenticated(self, client, user, small_jpeg_io):
         # login
         r = client.login(username=user.username, password=user._password)
@@ -29,7 +29,7 @@ class TestImageUpload:
         assert r.status_code == 201
         assert int(r.content.decode("utf-8")) > 0
 
-    @pytest.mark.django_db
+    @pytest.mark.django_db(transaction=True)
     def test_revert_image_upload_wrong_user(self, client, user, user2, small_jpeg_io):
         assert user.pk != user2.pk
         # login
@@ -51,7 +51,7 @@ class TestImageUpload:
         assert r.status_code == 404
         assert Upload.objects.filter(pk=image_pk).count() == 1
 
-    @pytest.mark.django_db
+    @pytest.mark.django_db(transaction=True)
     def test_revert_image_upload(self, client, user, small_jpeg_io):
         # login
         r = client.login(username=user.username, password=user._password)
@@ -69,7 +69,7 @@ class TestImageUpload:
         assert r.status_code == 200
         assert Upload.objects.filter(pk=image_pk).count() == 0
 
-    @pytest.mark.django_db
+    @pytest.mark.django_db(transaction=True)
     def test_upload_image_with_app(self, client, user, small_jpeg_io):
         # login
         r = client.login(username=user.username, password=user._password)

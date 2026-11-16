@@ -69,8 +69,9 @@ other Uploads and linked-model fields). Custom storage fields sharing a
 backend must reuse the same storage instance. References outside registered
 models or databases are not discoverable: do not share upload-owned keys with
 them. Do not concurrently reuse a key during revert; reference checks and
-storage deletion are not an atomic operation. Linked reverts resolve the unique FileField matching the registered key and use
-that field's storage, never the Upload field's default backend. Ambiguous linked
+storage deletion are not an atomic operation. Linked reverts resolve the unique
+FileField matching the registered key and use that field's storage, never the
+Upload field's default backend. Ambiguous linked
 registrations receive 400 and roll back; ambiguous or missing linked targets
 receive 409 on revert with no deletion. Additional linked-model files
 are outside this upload's ownership and are left alone.
@@ -89,12 +90,15 @@ installed application's label only when its application module (usually
 ``__init__.py``) exposes a callable ``upload_handler(request)``. The hook returns
 ``(ModelFormClass, context)``; ``get_model_form`` in ``filepond.forms`` builds
 this pair with ``upload_field_name`` and optional ``user_field``. To update an
-existing object, add ``instance`` to context. With ``user_field`` configured, Filepond checks the persisted owner on the
-write database before any storage save or model mutation; foreign instances
+existing object, add ``instance`` to context. With ``user_field`` configured,
+Filepond checks the persisted owner on the write database before any storage or
+model save; foreign instances
 receive 404. A mutable instance returned by the hook cannot override that check.
 The hook remains responsible for other application permissions. Without
 ``user_field``, the hook must authorize the instance itself; Filepond cannot
-infer ownership for ownerless models. A linked revert deletes its object (including a pre-existing object) only when
+infer ownership for ownerless models.
+
+A linked revert deletes its object (including a pre-existing object) only when
 the registration still uniquely matches the current file key and no other
 Upload registration refers to that object. Stale generations and other
 registrations, regardless of owner, receive 409 without changing rows or files.
@@ -124,18 +128,49 @@ storage API if no surviving registered FileField references them. Existing
 keys are retained, including a replaced instance's previous file. Successful
 replacement retires previous keys only after commit and only when no surviving
 registered FileField on the same database and storage instance references them.
-This includes old Upload wrappers: a key still registered by another Upload is
-retained. Cleanup failures use the same logging and manual retry contract as revert.
+This includes old Upload wrappers on that storage: a key still registered by
+another Upload is retained. Cleanup failures use the same logging and manual
+retry contract as revert.
 
 Storage must allocate fresh keys without overwriting existing bytes. Shared
 backends must reuse the same storage instance, with the same reference and
 concurrency restrictions described for revert above. Custom model save hooks
 must not create extra files or eagerly delete old files. Incoming files are
 saved before the model's save hooks/signals run, so ``upload_to`` must not depend
-on state those hooks set. Database transactions cannot roll back storage writes: cleanup is best effort and logs failures for
-manual retry. A crash, a storage save that writes then raises without returning
-its key, or rollback of an enclosing transaction after this view succeeds can
-leave orphaned files; there is no rollback callback or durable cleanup queue.
+on state those hooks set. Database transactions cannot roll back storage writes:
+cleanup is best effort and logs failures for manual retry. A crash or a storage
+save that writes then raises without returning its key can leave orphaned files;
+there is no rollback callback or durable cleanup queue.
+
+Upload transaction boundary
+---------------------------
+
+Uploads require autocommit with no enclosing atomic block on the selected write
+database. Filepond checks this before saving storage keys and uses an outermost
+durable transaction, so a successful response confirms the database commit.
+An enclosing ``transaction.atomic()``, disabled autocommit or ``ATOMIC_REQUESTS``
+on that database receives 400 before storage writes. There is no Django
+rollback callback to compensate a later host transaction rollback. Revert can
+still run inside an outer transaction: it only deletes storage after commit.
+
+If your host enables ``ATOMIC_REQUESTS``, mount the upload view explicitly with
+Django's public ``non_atomic_requests`` decorator on the selected database:
+
+.. code-block:: python
+
+    from django.db import transaction
+    from django.urls import path
+    from filepond.views import UploadCreateView
+
+    process = transaction.non_atomic_requests(using="default")(UploadCreateView.as_view())
+    urlpatterns = [path("process", process, name="process")]
+
+Apply the same wrapper to custom application upload routes; use the routed
+write alias instead of ``default`` when appropriate. This opts the upload
+endpoint out of the host request transaction. Application hooks and form
+validation must not write files or make unrelated database mutations before
+Filepond admits the upload boundary. Tests exercising successful uploads must
+use ``TransactionTestCase`` or ``pytest.mark.django_db(transaction=True)``.
 
 Detail access
 -------------

@@ -12,7 +12,7 @@ from filepond.forms import get_model_form
 from filepond.models import Upload
 from testapp.models import BigAudio, LocalAudio, TextAudio
 
-pytestmark = pytest.mark.django_db
+pytestmark = pytest.mark.django_db(transaction=True)
 PROCESS = reverse("filepond:process", kwargs={"app_name": "testapp"})
 REVERT = reverse("filepond:revert")
 

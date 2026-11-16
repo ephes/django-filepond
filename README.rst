@@ -83,6 +83,7 @@ uses SQLite. To repeat the bigint migration and registration/revert regressions
 against a disposable PostgreSQL database (the role needs test-database creation
 rights)::
 
+    python -m pip install 'psycopg[binary]'
     FILEPOND_TEST_DATABASE_URL=postgresql://localhost/filepond_test DJANGO_SETTINGS_MODULE=tests.postgres_settings python -m pytest tests/test_generic_identity.py
 
 Use synthetic test data only. No type-checking configuration is currently maintained.

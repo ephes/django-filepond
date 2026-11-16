@@ -10,7 +10,7 @@ class TestAudioUpload:
     upload_to_testapp_url = reverse("filepond:process", kwargs={"app_name": "testapp"})
     revert_url = reverse("filepond:revert")
 
-    @pytest.mark.django_db
+    @pytest.mark.django_db(transaction=True)
     def test_upload_m4a_audio_with_app(self, client, user, m4a_audio_io):
         # login
         r = client.login(username=user.username, password=user._password)

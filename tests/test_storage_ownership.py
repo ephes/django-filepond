@@ -3,12 +3,13 @@ from unittest.mock import patch
 import pytest
 from django.core.files.storage import InMemoryStorage
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import transaction
 from django.urls import reverse
 
 from filepond.models import Upload
 from testapp.models import LocalAudio
 
-pytestmark = pytest.mark.django_db
+pytestmark = pytest.mark.django_db(transaction=True)
 PROCESS = reverse("filepond:process", kwargs={"app_name": "testapp"})
 REVERT = reverse("filepond:revert")
 
@@ -25,7 +26,7 @@ def test_linked_revert_uses_source_storage(client, user, django_capture_on_commi
         upload = Upload.objects.get(pk=int(response.content))
         name = upload.original.name
         default.save(name, SimpleUploadedFile("sample.m4a", b"unrelated"))
-        with django_capture_on_commit_callbacks(execute=True):
+        with transaction.atomic():
             assert client.post(REVERT, str(upload.pk), content_type="text/plain").status_code == 200
             assert source.exists(name)
         assert not source.exists(name)
@@ -93,7 +94,8 @@ def test_replacement_retires_only_committed_unreferenced_keys(
                             client.post(PROCESS, {"original": SimpleUploadedFile("new.m4a", b"new")})
                 else:
                     assert client.post(PROCESS, {"original": SimpleUploadedFile("new.m4a", b"new")}).status_code == 201
-                assert storage.open(old_name).read() == b"old"
+                if shared or fail:
+                    assert storage.open(old_name).read() == b"old"
         audio.refresh_from_db()
         if fail:
             assert audio.m4a.name == old_name

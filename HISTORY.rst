@@ -6,6 +6,10 @@ History
 Unreleased
 ++++++++++
 
+* Require an outermost durable upload transaction; refuse enclosing atomic
+  blocks, ATOMIC_REQUESTS and disabled autocommit before storage writes.
+  Document explicit non_atomic_requests integration for host applications.
+
 * Widen generic linked IDs to PositiveBigIntegerField with a preserving migration;
   admit only positive signed 64-bit integer identities before storage effects.
 
