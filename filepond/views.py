@@ -43,6 +43,8 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
         upload_field_name = self.context["upload_field_name"]
 
         model = form.save(commit=False)
+        if not supported_identity(model):
+            return HttpResponseBadRequest("Unsupported upload identity")
         using = router.db_for_write(type(model), instance=model)
         created_files = []
         replaced_files = []
@@ -67,6 +69,8 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
                         stored.save(incoming.name, incoming, save=False)
                         created_files.append((stored.storage, stored.name))
                 model.save(using=using)
+                if not supported_identity(model) or model.pk is None:
+                    raise SuspiciousOperation("Unsupported upload identity")
                 form.save_m2m()
                 self.object = model
                 upload_pk = model.pk
@@ -170,6 +174,13 @@ class UploadRevertView(LoginRequiredMixin, DeleteView):
 
     # Filepond's default revert method is DELETE; older integrations use POST.
     delete = post
+
+
+def supported_identity(model):
+    """Generic links support positive signed 64-bit integer identities only."""
+    return isinstance(model._meta.pk, models.IntegerField) and (
+        model.pk is None or (type(model.pk) is int and 0 < model.pk <= 2**63 - 1)
+    )
 
 
 def linked_file(model, name):

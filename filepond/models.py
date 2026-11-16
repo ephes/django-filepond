@@ -18,7 +18,7 @@ class Upload(TimeStampedModel):
 
     # generic foreign key
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, null=True, blank=True)
-    object_id = models.PositiveIntegerField(null=True, blank=True)
+    object_id = models.PositiveBigIntegerField(null=True, blank=True)
     content_object = GenericForeignKey("content_type", "object_id")
 
     @property

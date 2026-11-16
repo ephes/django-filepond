@@ -26,3 +26,15 @@ class LocalAudio(TimeStampedModel):
 
     def __str__(self):
         return f"audio: {self.pk}"
+
+
+class BigAudio(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    owner = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
+    original = models.FileField(upload_to="testapp/big")
+
+
+class TextAudio(models.Model):
+    id = models.CharField(primary_key=True, max_length=40)
+    owner = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
+    original = models.FileField(upload_to="testapp/text")

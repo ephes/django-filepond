@@ -6,6 +6,9 @@ History
 Unreleased
 ++++++++++
 
+* Widen generic linked IDs to PositiveBigIntegerField with a preserving migration;
+  admit only positive signed 64-bit integer identities before storage effects.
+
 * Refuse linked reverts with 409 when the file generation is stale or another
   registration depends on the linked object; preserve all rows and bytes.
 

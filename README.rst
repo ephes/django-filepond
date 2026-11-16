@@ -78,8 +78,14 @@ Tests import the installed package, so missing distribution resources fail.
 The library keeps its existing AutoField key even in BigAutoField projects;
 regressions check both project defaults for migration drift.
 Django 4.2 is retained for compatibility testing; choose a maintained Django
-series for applications. No external storage, codec, browser or database
-service is required. No type-checking configuration is currently maintained.
+series for applications. No external storage, codec or browser service is required. The default matrix
+uses SQLite. To repeat the bigint migration and registration/revert regressions
+against a disposable PostgreSQL database (the role needs test-database creation
+rights)::
+
+    FILEPOND_TEST_DATABASE_URL=postgresql://localhost/filepond_test DJANGO_SETTINGS_MODULE=tests.postgres_settings python -m pytest tests/test_generic_identity.py
+
+Use synthetic test data only. No type-checking configuration is currently maintained.
 
 GitHub Actions runs this matrix on pushes and pull requests with read-only
 repository permissions, plus the following lint and build/install checks::

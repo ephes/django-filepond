@@ -109,6 +109,12 @@ file requests. Exceptions inside a registered hook remain application errors;
 validate application-specific input in the hook or form rather than relying
 on route error handling. Successful uploads return 201 with the Upload ID.
 
+Linked models must use integer primary keys in the positive signed 64-bit
+domain (1 through 2**63 - 1). AutoField and BigAutoField are supported; UUID,
+text, boolean, zero and negative identities receive 400 before storage writes.
+Apply the ``filepond`` migrations to widen existing generic registration keys;
+existing AutoField registrations remain valid.
+
 The linked model and Upload registration save in one transaction on the linked
 model's write database (or Upload's database for the default handler). All
 linked rows, users, content types and form relations must be available on that
