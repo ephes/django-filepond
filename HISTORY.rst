@@ -6,6 +6,9 @@ History
 Unreleased
 ++++++++++
 
+* Resolve linked reverts against the source FileField storage and refuse ambiguous
+  linked registrations and reverts.
+
 * Restrict upload detail lookups to the authenticated owner.
 * Save linked uploads and registrations atomically; compensate failed saves
   by cleaning newly created unreferenced file keys while retaining existing files.

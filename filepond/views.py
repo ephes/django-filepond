@@ -2,6 +2,7 @@ import logging
 
 from django.apps import apps
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import SuspiciousOperation
 from django.core.files.uploadedfile import UploadedFile
 from django.db import models, router, transaction
 from django.http import Http404, HttpResponse, HttpResponseBadRequest
@@ -61,8 +62,11 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
                 self.object = model
                 upload_pk = model.pk
                 if model.__class__ != Upload:
+                    name = getattr(model, upload_field_name).name
+                    if linked_file(model, name) is None:
+                        raise SuspiciousOperation("Ambiguous upload field")
                     upload = Upload.objects.using(using).create(
-                        original=getattr(model, upload_field_name).name,
+                        original=name,
                         user=self.request.user,
                         content_object=model,
                     )
@@ -129,14 +133,29 @@ class UploadRevertView(LoginRequiredMixin, DeleteView):
                 self.model.objects.using(using).select_for_update(), pk=int(body), user=request.user
             )
             storage, name = upload.original.storage, upload.original.name
-            if upload.content_object is not None:
-                upload.content_object.delete(using=using)
+            if upload.content_type_id is not None:
+                linked = upload.content_object
+                stored = linked_file(linked, name) if linked is not None else None
+                if stored is None:
+                    return HttpResponse("Upload no longer owns a unique linked file", status=409)
+                storage = stored.storage
+                linked.delete(using=using)
             upload.delete(using=using)
             transaction.on_commit(lambda: delete_unreferenced_file(storage, name, using), using=using)
         return HttpResponse("", status=200)
 
     # Filepond's default revert method is DELETE; older integrations use POST.
     delete = post
+
+
+def linked_file(model, name):
+    """Resolve an unambiguous linked FileField generation, including its storage."""
+    matches = [
+        getattr(model, field.name)
+        for field in model._meta.fields
+        if isinstance(field, models.FileField) and getattr(model, field.name).name == name
+    ]
+    return matches[0] if name and len(matches) == 1 else None
 
 
 def delete_unreferenced_file(storage, name, using):

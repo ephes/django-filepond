@@ -69,7 +69,10 @@ other Uploads and linked-model fields). Custom storage fields sharing a
 backend must reuse the same storage instance. References outside registered
 models or databases are not discoverable: do not share upload-owned keys with
 them. Do not concurrently reuse a key during revert; reference checks and
-storage deletion are not an atomic operation. Additional linked-model files
+storage deletion are not an atomic operation. Linked reverts resolve the unique FileField matching the registered key and use
+that field's storage, never the Upload field's default backend. Ambiguous linked
+registrations receive 400 and roll back; ambiguous or missing linked targets
+receive 409 on revert with no deletion. Additional linked-model files
 are outside this upload's ownership and are left alone.
 
 Storage failures are logged to ``filepond.views`` after the rows commit;
