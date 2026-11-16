@@ -38,3 +38,34 @@ def test_foreign_existing_instance_refused_before_storage(client, user, user2, d
         assert audio.m4a.name == name
         assert audio.m4a.read() == b"private"
         assert not Upload.objects.exists()
+
+
+def test_stale_revert_preserves_new_upload_generation(client, user, django_capture_on_commit_callbacks):
+    client.force_login(user)
+    first = client.post(PROCESS, {"original": SimpleUploadedFile("first.m4a", b"first")})
+    old = Upload.objects.get(pk=int(first.content))
+    audio = old.content_object
+    form_class, context = get_model_form(LocalAudio, upload_field_name="m4a", user_field="owner")
+    context["instance"] = audio
+    with patch("testapp.upload_handler", return_value=(form_class, context)):
+        second = client.post(PROCESS, {"original": SimpleUploadedFile("second.m4a", b"second")})
+    current = Upload.objects.get(pk=int(second.content))
+    with django_capture_on_commit_callbacks(execute=True) as callbacks:
+        assert client.post(REVERT, str(old.pk), content_type="text/plain").status_code == 409
+    assert callbacks == []
+    audio.refresh_from_db()
+    assert audio.m4a.name == current.original.name
+    assert audio.m4a.read() == b"second"
+    assert Upload.objects.filter(pk__in=[old.pk, current.pk]).count() == 2
+
+
+@pytest.mark.parametrize("other_owner", [False, True])
+def test_current_revert_preserves_other_linked_registrations(client, user, user2, other_owner):
+    client.force_login(user)
+    audio = LocalAudio.objects.create(owner=user, m4a=SimpleUploadedFile("shared.m4a", b"shared"))
+    upload = Upload.objects.create(user=user, original=audio.m4a.name, content_object=audio)
+    other = Upload.objects.create(user=user2 if other_owner else user, original=audio.m4a.name, content_object=audio)
+    assert client.post(REVERT, str(upload.pk), content_type="text/plain").status_code == 409
+    assert Upload.objects.filter(pk__in=[upload.pk, other.pk]).count() == 2
+    assert LocalAudio.objects.filter(pk=audio.pk).exists()
+    assert audio.m4a.read() == b"shared"

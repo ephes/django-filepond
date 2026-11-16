@@ -94,9 +94,12 @@ write database before any storage save or model mutation; foreign instances
 receive 404. A mutable instance returned by the hook cannot override that check.
 The hook remains responsible for other application permissions. Without
 ``user_field``, the hook must authorize the instance itself; Filepond cannot
-infer ownership for ownerless models. Reverting an upload
-always deletes its linked object, including a pre-existing object updated this
-way; it does not restore the previous file or object state.
+infer ownership for ownerless models. A linked revert deletes its object (including a pre-existing object) only when
+the registration still uniquely matches the current file key and no other
+Upload registration refers to that object. Stale generations and other
+registrations, regardless of owner, receive 409 without changing rows or files.
+The application must reconcile conflicting registrations through its authorized
+object lifecycle. Revert does not restore previous file or object state.
 
 Send exactly one file under ``filepond`` or ``original``. Missing, unexpected
 or multiple files receive 400 (``Invalid upload``) before any handler runs.

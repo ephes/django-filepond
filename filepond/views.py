@@ -147,10 +147,21 @@ class UploadRevertView(LoginRequiredMixin, DeleteView):
             )
             storage, name = upload.original.storage, upload.original.name
             if upload.content_type_id is not None:
-                linked = upload.content_object
+                linked_model = upload.content_type.model_class()
+                linked = (
+                    linked_model._base_manager.using(using).select_for_update().filter(pk=upload.object_id).first()
+                    if linked_model is not None
+                    else None
+                )
                 stored = linked_file(linked, name) if linked is not None else None
-                if stored is None:
-                    return HttpResponse("Upload no longer owns a unique linked file", status=409)
+                other_registrations = (
+                    self.model.objects.using(using)
+                    .filter(content_type_id=upload.content_type_id, object_id=upload.object_id)
+                    .exclude(pk=upload.pk)
+                    .exists()
+                )
+                if stored is None or other_registrations:
+                    return HttpResponse("Upload no longer exclusively owns the linked object", status=409)
                 storage = stored.storage
                 linked.delete(using=using)
             upload.delete(using=using)

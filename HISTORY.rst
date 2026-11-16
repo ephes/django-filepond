@@ -6,6 +6,9 @@ History
 Unreleased
 ++++++++++
 
+* Refuse linked reverts with 409 when the file generation is stale or another
+  registration depends on the linked object; preserve all rows and bytes.
+
 * Verify persisted ownership of existing upload instances before storage writes;
   refuse foreign instances with 404 instead of transferring ownership.
 
