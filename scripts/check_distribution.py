@@ -20,6 +20,7 @@ for resource in (
     "migrations/0001_initial.py",
     "migrations/0002_auto_20181127_0925.py",
     "migrations/0003_auto_20181127_0938.py",
+    "migrations/0004_upload_object_id_bigint.py",
     "static/js/filepond.js",
     "static/css/filepond.css",
 ):

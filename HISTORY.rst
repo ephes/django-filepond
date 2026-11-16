@@ -6,6 +6,27 @@ History
 Unreleased
 ++++++++++
 
+* Require an outermost durable upload transaction; refuse enclosing atomic
+  blocks, ATOMIC_REQUESTS and disabled autocommit before storage writes.
+  Document explicit non_atomic_requests integration for host applications.
+
+* Widen generic linked IDs to PositiveBigIntegerField with a preserving migration;
+  admit only positive signed 64-bit integer identities before storage effects,
+  including multi-table children and one-to-one primary keys on integer keys.
+
+* Refuse linked reverts with 409 when the file generation is stale or another
+  registration depends on the linked object or a row its deletion cascades to;
+  preserve all rows and bytes.
+
+* Verify persisted ownership of existing upload instances before storage writes;
+  refuse foreign instances with 404 instead of transferring ownership.
+
+* Retire replaced incoming-file keys after commit when no registered FileField
+  still references them; retain old keys on rollback and when shared.
+
+* Resolve linked reverts against the source FileField storage and refuse ambiguous
+  linked registrations and reverts.
+
 * Restrict upload detail lookups to the authenticated owner.
 * Save linked uploads and registrations atomically; compensate failed saves
   by cleaning newly created unreferenced file keys while retaining existing files.

@@ -14,7 +14,7 @@ from filepond.models import Upload
 from filepond.views import UploadCreateView
 from testapp.models import LocalAudio
 
-pytestmark = pytest.mark.django_db
+pytestmark = pytest.mark.django_db(transaction=True)
 PROCESS = reverse("filepond:process", kwargs={"app_name": "testapp"})
 
 
@@ -152,7 +152,7 @@ class UploadDatabaseRouter:
         return None
 
 
-@pytest.mark.django_db(databases=["default", "uploads"])
+@pytest.mark.django_db(transaction=True, databases=["default", "uploads"])
 @pytest.mark.parametrize("fail_registration", [False, True])
 def test_creation_uses_linked_write_database(settings, fail_registration):
     settings.DATABASE_ROUTERS = [UploadDatabaseRouter()]

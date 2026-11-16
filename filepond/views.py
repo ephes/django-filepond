@@ -2,8 +2,12 @@ import logging
 
 from django.apps import apps
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import SuspiciousOperation
 from django.core.files.uploadedfile import UploadedFile
 from django.db import models, router, transaction
+from django.db.models import Q
+from django.db.models.deletion import Collector
 from django.http import Http404, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404
 from django.views.generic import CreateView, DeleteView, DetailView
@@ -42,33 +46,56 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
         upload_field_name = self.context["upload_field_name"]
 
         model = form.save(commit=False)
-        if user_field is not None:
-            setattr(model, user_field, self.request.user)
+        if not supported_identity(model):
+            return HttpResponseBadRequest("Unsupported upload identity")
         using = router.db_for_write(type(model), instance=model)
+        connection = transaction.get_connection(using)
+        if connection.in_atomic_block or not connection.get_autocommit():
+            return HttpResponseBadRequest("Upload requires autocommit outside an atomic block")
         created_files = []
+        replaced_files = []
         try:
-            with transaction.atomic(using=using):
+            with transaction.atomic(using=using, durable=True):
+                previous = None
+                if model.pk is not None:
+                    previous = type(model)._base_manager.using(using).select_for_update().filter(pk=model.pk).first()
+                if user_field is not None:
+                    if previous is not None and getattr(previous, user_field) != self.request.user:
+                        raise Http404("Upload instance unavailable")
+                    setattr(model, user_field, self.request.user)
                 # Save incoming files explicitly so their final storage keys are
                 # known even if the subsequent model/registration save fails.
                 for field in model._meta.fields:
                     incoming = form.cleaned_data.get(field.name)
                     if isinstance(field, models.FileField) and isinstance(incoming, UploadedFile):
+                        if previous is not None:
+                            old = getattr(previous, field.name)
+                            replaced_files.append((old.storage, old.name))
                         stored = getattr(model, field.name)
                         stored.save(incoming.name, incoming, save=False)
                         created_files.append((stored.storage, stored.name))
                 model.save(using=using)
+                if not supported_identity(model) or model.pk is None:
+                    raise SuspiciousOperation("Unsupported upload identity")
                 form.save_m2m()
                 self.object = model
                 upload_pk = model.pk
                 if model.__class__ != Upload:
+                    name = getattr(model, upload_field_name).name
+                    if linked_file(model, name) is None:
+                        raise SuspiciousOperation("Ambiguous upload field")
                     upload = Upload.objects.using(using).create(
-                        original=getattr(model, upload_field_name).name,
+                        original=name,
                         user=self.request.user,
                         content_object=model,
                     )
                     upload_pk = upload.pk
+                for storage, name in replaced_files:
+                    transaction.on_commit(
+                        lambda storage=storage, name=name: delete_unreferenced_file(storage, name, using), using=using
+                    )
         except Exception:
-            # The savepoint has rolled back; never remove old/shared keys.
+            # The upload transaction has rolled back; never remove old/shared keys.
             for storage, name in created_files:
                 delete_unreferenced_file(storage, name, using)
             raise
@@ -129,14 +156,69 @@ class UploadRevertView(LoginRequiredMixin, DeleteView):
                 self.model.objects.using(using).select_for_update(), pk=int(body), user=request.user
             )
             storage, name = upload.original.storage, upload.original.name
-            if upload.content_object is not None:
-                upload.content_object.delete(using=using)
+            if upload.content_type_id is not None:
+                linked_model = upload.content_type.model_class()
+                linked = (
+                    linked_model._base_manager.using(using).select_for_update().filter(pk=upload.object_id).first()
+                    if linked_model is not None
+                    else None
+                )
+                stored = linked_file(linked, name) if linked is not None else None
+                if stored is None or dependent_registrations(upload, linked, using):
+                    return HttpResponse("Upload no longer exclusively owns the linked object", status=409)
+                storage = stored.storage
+                linked.delete(using=using)
             upload.delete(using=using)
             transaction.on_commit(lambda: delete_unreferenced_file(storage, name, using), using=using)
         return HttpResponse("", status=200)
 
     # Filepond's default revert method is DELETE; older integrations use POST.
     delete = post
+
+
+def integer_identity(model):
+    """Whether a model's primary key column is an integer (generic-link capable) column."""
+    pk_field = model._meta.pk
+    # Multi-table children and one-to-one primary keys store the target's column.
+    while pk_field.is_relation:
+        pk_field = pk_field.target_field
+    return isinstance(pk_field, models.IntegerField)
+
+
+def supported_identity(model):
+    """Generic links support positive signed 64-bit integer identities only."""
+    return integer_identity(model) and (model.pk is None or (type(model.pk) is int and 0 < model.pk <= 2**63 - 1))
+
+
+def dependent_registrations(upload, linked, using):
+    """Whether deleting ``linked`` would remove a row another Upload registration refers to.
+
+    The collector follows the same cascades as ``linked.delete()``, including
+    multi-table parents and children that share the linked key.
+    """
+    collector = Collector(using=using)
+    collector.collect([linked])
+    content_types = ContentType.objects.db_manager(using)
+    query = Q()
+    for model, instances in collector.data.items():
+        if model is not Upload and integer_identity(model):
+            pks = [instance.pk for instance in instances]
+            query |= Q(content_type=content_types.get_for_model(model), object_id__in=pks)
+    for queryset in collector.fast_deletes:
+        if queryset.model is not Upload and integer_identity(queryset.model):
+            pks = queryset.values_list("pk", flat=True)
+            query |= Q(content_type=content_types.get_for_model(queryset.model), object_id__in=pks)
+    return bool(query) and Upload.objects.using(using).filter(query).exclude(pk=upload.pk).exists()
+
+
+def linked_file(model, name):
+    """Resolve an unambiguous linked FileField generation, including its storage."""
+    matches = [
+        getattr(model, field.name)
+        for field in model._meta.fields
+        if isinstance(field, models.FileField) and getattr(model, field.name).name == name
+    ]
+    return matches[0] if name and len(matches) == 1 else None
 
 
 def delete_unreferenced_file(storage, name, using):
